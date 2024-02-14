@@ -133,14 +133,8 @@ class LlamaAttention(nn.Module):
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-        # int_values['Q_pre_emb'] = query_states.cpu().detach()
-        # int_values['K_pre_emb'] = key_states.cpu().detach()
-        # int_values['V_pre_emb'] = value_states.cpu().detach()
-
         kv_seq_len = key_states.shape[-2]
         if past_key_value is not None:
-            print(past_key_value)
-            # print(past_key_value.shape)
             kv_seq_len += past_key_value[0].shape[-2]
         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
@@ -160,10 +154,7 @@ class LlamaAttention(nn.Module):
             int_values['Q'] = query_states.cpu().detach()
             int_values['K'] = key_states.cpu().detach()
             int_values['V'] = value_states.cpu().detach()
-        # int_values['Q'] = query_states.detach()
-        # int_values['K'] = key_states.detach()
-        # int_values['V'] = value_states.detach()
-
+        
         attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
         if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
@@ -171,7 +162,6 @@ class LlamaAttention(nn.Module):
                 f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"
                 f" {attn_weights.size()}"
             )
-        # print(attention_mask[0, 0, :5, :5])
         if attention_mask is not None:
             if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
                 raise ValueError(
@@ -181,7 +171,6 @@ class LlamaAttention(nn.Module):
 
         # upcast attention to fp32
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
-        # int_values['attn'] = attn_weights.cpu().detach()
         attn_output = torch.matmul(attn_weights, value_states)
 
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
@@ -193,8 +182,6 @@ class LlamaAttention(nn.Module):
         attn_output = attn_output.transpose(1, 2).contiguous()
         attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
 
-        # int_values['V_'] = attn_output.cpu().detach()
-
         if self.config.pretraining_tp > 1:
             attn_output = attn_output.split(self.hidden_size // self.config.pretraining_tp, dim=2)
             o_proj_slices = self.o_proj.weight.split(self.hidden_size // self.config.pretraining_tp, dim=1)
@@ -204,7 +191,6 @@ class LlamaAttention(nn.Module):
         
         if self.collect:
             int_values['O'] = attn_output.cpu().detach()
-        # int_values['O'] = attn_output.cpu().detach()
 
         if not output_attentions:
             attn_weights = None
