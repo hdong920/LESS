@@ -40,7 +40,7 @@ python eval_gen.py \
 
 # LESS
 python eval_gen.py \
-    --saved_model_name falcon_7b_h2o \
+    --saved_model_name llama2_7b_h2o \
     --model_arch $model_arch \
     --model_size $model_size \
     --dataset $dataset \
